@@ -101,13 +101,129 @@ async def upload_batch1_to_supabase():
         # Use .env-configured client; no keys in code
         supa = SupabaseService()
 
-        # Insert (no upsert) to match user's request; will error if duplicates exist
-        upload_result = supa.insert_articles(articles)
+        # Use upsert to handle potential duplicates gracefully
+        upload_result = supa.upsert_articles(articles)
         return {
             "success": upload_result.get("success", False),
             "file": latest_file,
             "inserted_count": upload_result.get("count", 0),
             "upload_result": upload_result,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.post("/upload/all")
+@router.get("/upload/all")
+async def upload_all_batches_to_supabase():
+    """
+    Upload all 4 batches of detailed news to Supabase.
+    Uses SUPABASE_URL and SUPABASE_KEY from .env via SupabaseService.
+    """
+    try:
+        data_dir = "data"
+        all_batches = []
+        seen_urls = set()  # Track unique URLs to avoid duplicates
+
+        # Process all 4 batches
+        for batch_num in range(1, 5):
+            pattern = os.path.join(data_dir, f"detailed_news_batch{batch_num}_*.json")
+            files = glob.glob(pattern)
+            if not files:
+                continue
+
+            latest_file = max(files, key=os.path.getctime)
+            with open(latest_file, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+
+            articles = payload.get("detailed_news_data", {}).get("detailed_articles")
+            if articles is None:
+                # Try direct top-level
+                articles = payload.get("detailed_articles", [])
+
+            if articles:
+                # Filter out duplicates based on source_url
+                for article in articles:
+                    source_url = article.get("source_url") or article.get("url")
+                    if source_url and source_url not in seen_urls:
+                        seen_urls.add(source_url)
+                        all_batches.append(article)
+
+        if not all_batches:
+            return {
+                "success": False,
+                "error": "No detailed articles found in any batch files",
+            }
+
+        # Debug: Check embedding information
+        embedding_info = {
+            "total_articles": len(all_batches),
+            "articles_with_embeddings": 0,
+            "articles_without_embeddings": 0,
+            "embedding_dimensions": set(),
+        }
+
+        for article in all_batches:
+            embedding = article.get("embedding")
+            if embedding:
+                embedding_info["articles_with_embeddings"] += 1
+                embedding_info["embedding_dimensions"].add(len(embedding))
+            else:
+                embedding_info["articles_without_embeddings"] += 1
+
+        # Use .env-configured client; no keys in code
+        supa = SupabaseService()
+
+        # Use upsert to handle potential duplicates gracefully
+        upload_result = supa.upsert_articles(all_batches)
+        return {
+            "success": upload_result.get("success", False),
+            "total_articles": len(all_batches),
+            "unique_articles": len(seen_urls),
+            "inserted_count": upload_result.get("count", 0),
+            "embedding_debug": embedding_info,
+            "upload_result": upload_result,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/check/existing")
+async def check_existing_articles():
+    """
+    Check if the database table exists and return basic info.
+    Useful for debugging connection issues.
+    """
+    try:
+        supa = SupabaseService()
+        # Just check if we can access the table
+        response = supa.client.table(supa.table_name).select("*").limit(1).execute()
+
+        return {
+            "success": True,
+            "table_name": supa.table_name,
+            "connection_status": "Connected to Supabase",
+            "table_accessible": True,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@router.get("/check/embedding-config")
+async def check_embedding_config():
+    """
+    Check the current embedding dimension configuration.
+    Useful for debugging embedding issues.
+    """
+    try:
+        supa = SupabaseService()
+        return {
+            "success": True,
+            "required_vector_dimension": supa.required_vector_dimension,
+            "table_name": supa.table_name,
+            "embedding_dim_env": os.getenv(
+                "EMBEDDING_DIM", "Not set (using default 1024)"
+            ),
         }
     except Exception as e:
         return {"success": False, "error": str(e)}
