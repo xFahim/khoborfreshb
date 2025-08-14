@@ -14,7 +14,7 @@ async def scrape_prothomalo():
 
     firecrawl_app = AsyncFirecrawlApp(api_key=api_key)
     response = await firecrawl_app.scrape_url(
-        url="https://www.prothomalo.com/collection/latest",
+        url="https://www.prothomalo.com/world",
         formats=["markdown"],
         only_main_content=True,
         parse_pdf=False,
@@ -22,6 +22,8 @@ async def scrape_prothomalo():
     )
 
     # Preprocess the response using Mistral AI with 3 chunks
-    preprocessed_data = await preprocess_data(response, max_chunks=3, source_name="prothomalo")
+    preprocessed_data = await preprocess_data(
+        response, max_chunks=4, source_name="prothomalo"
+    )
 
     return preprocessed_data

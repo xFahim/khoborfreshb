@@ -13,7 +13,7 @@ async def scrape_dailystar():
 
     firecrawl_app = AsyncFirecrawlApp(api_key=api_key)
     response = await firecrawl_app.scrape_url(
-        url="https://bangla.thedailystar.net/todays-news",
+        url="https://bangla.thedailystar.net/news/bangladesh",
         formats=["markdown"],
         only_main_content=True,
         parse_pdf=False,
@@ -22,7 +22,7 @@ async def scrape_dailystar():
 
     # Preprocess the response using OpenAI
     preprocessed_data = await preprocess_data(
-        response, max_chunks=3, source_name="dailystar"
+        response, max_chunks=4, source_name="dailystar"
     )
 
     return preprocessed_data

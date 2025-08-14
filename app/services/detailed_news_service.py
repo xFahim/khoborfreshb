@@ -411,3 +411,32 @@ class DetailedNewsService:
         except Exception as e:
             print(f"❌ Error saving batch {batch_number} detailed news data: {e}")
             return "N/A"
+
+    def save_detailed_news_all_json(self, data: Dict[str, Any]) -> str:
+        """
+        Save detailed news data for all batches combined to JSON file
+
+        Args:
+            data: Detailed news data to save
+
+        Returns:
+            str: Filepath where data was saved
+        """
+        try:
+            data_dir = "data"
+            if not os.path.exists(data_dir):
+                os.makedirs(data_dir)
+
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"detailed_news_all_batches_{timestamp}.json"
+            filepath = os.path.join(data_dir, filename)
+
+            with open(filepath, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+            print(f"✅ All batches detailed news data saved to: {filepath}")
+            return filepath
+
+        except Exception as e:
+            print(f"❌ Error saving all batches detailed news data: {e}")
+            return "N/A"
